@@ -1,0 +1,148 @@
+### Details ###
+#  R script to process and create plots using CAIT data
+#
+#
+####### Set up #############################
+## Initialize packages
+#For data manipulation
+library(dplyr) #mutate, filter and other functions
+library(reshape2) #melt and dcast function
+library(tidyverse)
+library(forcats)
+
+####For visualization
+library(ggplot2)
+library(viridis) #for color blind friendly palettes
+##############################################
+
+######### Load Data ###########################
+#Read-in exports from CAIT/ClimateWatch historical emissions database for each sector, including land use and forestry (LUCF):
+#   Countries/Regions: World (all; show data by country) 
+#   Gases: All GHG. 
+#   Calculation: Total
+#   Units = MtCO2e
+setwd("C:/Users/wb580236/OneDrive - WBG/Documents/R")
+data_TOT <- read.csv("./Data_raw/all-ghg-emissions_TOTAL_incLUCF.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_LUF <- read.csv("./Data_raw/all-ghg-emissions_LAND-FOREST.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_WASTE <- read.csv("./Data_raw/all-ghg-emissions_WASTE.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_AGRI <- read.csv("./Data_raw/all-ghg-emissions_AGRICULTURE.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_IND <- read.csv("./Data_raw/all-ghg-emissions_INDUSTRIAL.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_BUNK <- read.csv("./Data_raw/all-ghg-emissions_BUNKER-FUEL.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+#data_ENERGY_tot <- read.csv("./Data_raw/all-ghg-emissions_ENERGY.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+
+#For each energy sub-sector: Transport, Buildings, Electricity and heat, Fugitive emissions, Manufacturing and Construction, and Other Fuel combustion 
+data_Transport <- read.csv("./Data_raw/all-ghg-emissions_ENERGY_Transport.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_Building <- read.csv("./Data_raw/all-ghg-emissions_ENERGY_Building.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_ElectHeat <- read.csv("./Data_raw/all-ghg-emissions_ENERGY_ElectHeat.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_FugEm <- read.csv("./Data_raw/all-ghg-emissions_ENERGY_FugitiveEm.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_ManuCons <- read.csv("./Data_raw/all-ghg-emissions_ENERGY_ManuCons.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_OtherComb <- read.csv("./Data_raw/all-ghg-emissions_ENERGY_OtherFuelCombust.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+##############################################################
+
+
+##################Subset to most recent years, which have most complete data across countries: 2000-2018
+years.select <- c("Country.Region", "X2000", "X2001", "X2002", "X2003", "X2004", "X2005", "X2006", "X2007", "X2008", "X2009", "X2010", "X2011", "X2012", "X2013", "X2014", "X2015", "X2016", "X2017", "X2018")
+data_TOT <- subset(data_TOT, select=years.select)
+data_LUF <- subset(data_LUF, select=years.select)
+data_WASTE <- subset(data_WASTE, select=years.select)
+data_AGRI <- subset(data_AGRI, select=years.select)
+data_IND <- subset(data_IND, select=years.select)
+data_BUNK <- subset(data_BUNK, select=years.select)
+data_Transport <- subset(data_Transport, select=years.select)
+data_Building <- subset(data_Building, select=years.select)
+data_ElectHeat <- subset(data_ElectHeat, select=years.select)
+data_FugEm <- subset(data_FugEm, select=years.select)
+data_ManuCons <- subset(data_ManuCons, select=years.select)
+data_OtherComb <- subset(data_OtherComb, select=years.select)
+
+########Reshape and Combine Data
+data_TOT <- melt(data_TOT, id.vars = "Country.Region")
+data_LUF <- melt(data_LUF, id.vars = "Country.Region")
+data_WASTE <- melt(data_WASTE, id.vars = "Country.Region")
+data_AGRI <- melt(data_AGRI, id.vars = "Country.Region")
+data_IND <- melt(data_IND, id.vars = "Country.Region")
+data_BUNK <- melt(data_BUNK, id.vars = "Country.Region")
+data_TOT$sector <- "TOTAL"
+data_LUF$sector <- "LandUseForestry"
+data_WASTE$sector <- "Waste"
+data_AGRI$sector <- "Agriculture"
+data_IND$sector <- "Industrial"
+data_BUNK$sector <- "BunkerFuels"
+
+###### Test
+#data_ENERGY_tot <- melt(data_ENERGY_tot, id.vars = "Country.Region")
+#data_ENERGY_tot$sector <- "ENERGY (all subsectors)"
+#########
+
+
+data_Transport <- melt(data_Transport, id.vars = "Country.Region")
+data_Building <- melt(data_Building, id.vars = "Country.Region")
+data_ElectHeat <- melt(data_ElectHeat, id.vars = "Country.Region")
+data_FugEm <- melt(data_FugEm, id.vars = "Country.Region")
+data_ManuCons <- melt(data_ManuCons, id.vars = "Country.Region")
+data_OtherComb <- melt(data_OtherComb, id.vars = "Country.Region")
+data_Transport$sector <- "Transport"
+data_Building$sector <- "Buildings"
+data_ElectHeat$sector <- "ElectricityHeat"
+data_FugEm$sector <- "FugitiveEmissions"
+data_ManuCons$sector <- "ManufacturingConstruction"
+data_OtherComb$sector <- "OtherFuelCombustion"
+
+data_TOT$value <- as.numeric(data_TOT$value)
+data_LUF$value <- as.numeric(data_LUF$value)
+data_WASTE$value <- as.numeric(data_WASTE$value)
+data_AGRI$value <- as.numeric(data_AGRI$value)
+data_IND$value <- as.numeric(data_IND$value)
+data_BUNK$value <- as.numeric(data_BUNK$value)
+data_Transport$value <- as.numeric(data_Transport$value)
+data_Building$value <- as.numeric(data_Building$value)
+data_ElectHeat$value <- as.numeric(data_ElectHeat$value)
+data_FugEm$value <- as.numeric(data_FugEm$value)
+data_ManuCons$value <- as.numeric(data_ManuCons$value)
+data_OtherComb$value <- as.numeric(data_OtherComb$value)
+
+###### Test################
+#data_TOT.new <- rbind(data_TOT, data_BUNK)
+#data_TOT.new <- data_TOT.new %>% group_by(Country.Region, variable) %>% 
+#    summarise(value = sum(value, na.rm=TRUE))
+#data_TOT.new$sector <- "Total-incBF"
+#########################
+
+##############Combining data establishing levels#####
+data_combined <- rbind(data_LUF, data_WASTE, data_AGRI, data_IND, data_BUNK, data_Transport, data_Building, data_ElectHeat, data_FugEm, data_ManuCons, data_OtherComb)
+colnames(data_combined) <- c("Country", "Year", "Value", "Sector")
+data_combined[data_combined == "false"] <- NA
+
+data_TOT.calc <- data_combined %>% group_by(Country, Year) %>%
+  summarise(Value = sum(Value, na.rm=TRUE))
+data_TOT.calc$Sector <- "Total-calculated"
+
+years.levels <- c("2000", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018")
+levels(data_combined$Year) <- years.levels
+data_combined <- data_combined %>% mutate(Year = as.numeric(as.character(Year)))
+
+FullSectors <- c("LandUseForestry", "Waste", "Agriculture", "Industrial", "BunkerFuels", "Transport", "Buildings", "ElectricityHeat", "FugitiveEmissions", "ManufacturingConstruction", "OtherFuelCombustion")
+data_combined$Sector <- factor(data_combined$Sector, levels=FullSectors)
+data_combined$Sector2 <- fct_collapse(data_combined$Sector,
+                                   TransportLogistics = c("Transport", "BunkerFuels"),
+                                   EnergyServices = c("ElectricityHeat", "Buildings", "OtherFuelCombustion"),
+                                   Industry = c("Industrial", "ManufacturingConstruction"),
+                                   Other = c("Waste", "FugitiveEmissions"))
+
+##Append country codes#########################
+Co_lookup <- read.csv("./CAIT_Co_Lookup.csv", stringsAsFactors=FALSE, na.strings=c("","NA"))
+data_combined <- merge(data_combined, Co_lookup, by.x="Country", by.y="ï..CAIT_CountryName", all.x=TRUE)
+
+data_combined <- data_combined %>% mutate(
+  WB_IncGrp=ifelse(Country=="WORLD", "WORLD", WB_IncGrp),
+  developing=ifelse(WB_IncGrp=="WORLD", "WORLD", ifelse(WB_IncGrp=="High income" & WB_LendCountry=="No", "No", "Yes")))
+
+write.csv(data_combined, "C:/Users/wb580236/OneDrive - WBG/Documents/R/myApp/CAIT_MASTERFILE_2000-2018.csv")
+
+##################### END OF PROCESSING########################
+
+
+
+
+
+
