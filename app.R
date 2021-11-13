@@ -12,17 +12,10 @@ library(forcats)
 library(shiny)
 library(ggplot2)
 library(viridis) #for color blind friendly palettes
-library(dplyr) #mutate, filter and other functions
-library(reshape2) #melt and dcast function
-library(tidyverse)
-library(forcats)
-
-####For visualization
-library(ggplot2)
-library(viridis) #for color blind friendly palettes
-
 library(shinydashboard)
 library(DT)
+
+
 sidebar <- dashboardSidebar(
   sidebarMenu(
     menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
