@@ -1,0 +1,210 @@
+#### Details of teh script
+# Rscript to plot the data
+# 
+#
+##########################
+#For data manipulation
+library(dplyr) #mutate, filter and other functions
+library(reshape2) #melt and dcast function
+library(tidyverse)
+library(forcats)
+
+####For visualization
+library(shiny)
+library(ggplot2)
+library(viridis) #for color blind friendly palettes
+library(dplyr) #mutate, filter and other functions
+library(reshape2) #melt and dcast function
+library(tidyverse)
+library(forcats)
+
+#### Load Data Again#########################################
+#data_combined <- read.csv(file ="CAIT_MASTERFILE_2000-2018.csv")
+
+filter(data_combined, Sector2=="TransportLogistics", Year==2000)
+
+######Summarize data for income groups and regions############
+data_incgrp <- filter(data_combined, is.na(WB_IncGrp)==FALSE) %>% group_by(Year, Sector2, WB_IncGrp) %>%
+  summarise(n=sum(Value, na.rm=TRUE)) %>%
+  mutate(percentage = (n/sum(n))*100)
+data_incgrp$WB_IncGrp <- factor(data_incgrp$WB_IncGrp, levels=c("WORLD", "Low income", "Lower middle income", "Upper middle income", "High income"))
+
+data_world <- filter(data_combined, Country=="WORLD")
+
+#######Stacked area graph of transport and bunker fuel emissions over time by income group######
+filter(data_incgrp, Sector2=="TransportLogistics") %>%
+    #mutate(Sector=fct_reorder(WB_IncGrp, n, .desc=TRUE)) %>%   #Order the sectors in terms of increasing emissions
+  ggplot(aes(x=Year, y=n,  fill=WB_IncGrp)) + 
+      geom_area() +
+      scale_fill_viridis(discrete=TRUE, option="plasma") +
+      theme_bw()+
+      ylab("Greenhouse gas emissions from transport \n and bunker fuels (Mt CO2eq)") 
+
+data_pcnt <- filter(data_combined, WB_IncGrp=="Low income", Year==2018) %>% group_by(Sector2) %>%
+  summarise(n = sum(Value, na.rm=TRUE)) %>% 
+  mutate(percentage = (n / sum(n))*100)
+data_pcnt
+
+data_pcnt <- filter(data_combined, WB_Region=="Latin America & Caribbean", Year==2018) %>% group_by(Sector2) %>%
+  summarise(n = sum(Value, na.rm=TRUE)) %>% 
+  mutate(percentage = (n / sum(n))*100)
+data_pcnt
+
+data_filter <- filter(data_combined, Sector=="Transport", Year==2018)
+
+data_sum <- filter(data_filter, is.na(Value)==FALSE) %>% group_by(WB_IncGrp) %>%
+  summarise(tot_trnsprt_emiss = sum(Value), 
+            pop = sum(Pop_2018, na.rm=TRUE))
+data_sum
+
+
+
+##################### Graph and Tables for Single Country (by country code)##########################
+
+#######Vietnam, China, Philippines Indonesia
+SelectCo <- "Philippines"
+SelectYr <- 2018
+
+data_pcnt <- filter(data_combined, Country==SelectCo, Year==SelectYr) %>% group_by(Sector2) %>%
+  summarise(n = sum(Value, na.rm=TRUE)) %>% 
+  mutate(percentage = (n / sum(n))*100)
+data_pcnt
+
+data_value <- filter(data_combined, Country==SelectCo)
+
+data_hnd <- filter(data_combined, Country==SelectCo) %>% group_by(Year, Sector2) %>%
+  summarise(n = sum(Value, na.rm=TRUE)) %>% 
+  mutate(percentage = (n / sum(n))*100)
+data_hnd
+write.csv(data_hnd, "CAITdata_jrd.csv")
+
+
+
+######################### Graphs and Tables for Multiple Countries ###################################
+
+
+levels(data_value$Sector) <- sectors.levels
+data_value$Sector2 <- data_value$Sector
+levels(data_value$Sector2) <- sectors2.levels
+
+#Pie chart of share of emissions by sector
+filter(data_value, Country==SelectCo & Year==SelectYr) %>%
+ggplot(aes(x="", y=Value, fill=Sector2)) + 
+      geom_bar(stat="identity", width=1) +
+      coord_polar("y", start=0) +
+      scale_fill_viridis(discrete=TRUE, option="viridis") +
+      theme_bw()+
+      ggtitle(SelectCo)
+
+x <- filter(data_value, Country==SelectCo & Year==SelectYr) %>% 
+  group_by(Sector2) %>%
+  summarise(n=sum(Value, na.rm=TRUE))
+y=sum(x$n)
+
+
+###############################  Stacked area graph of emissions over time by sector ###################
+filter(data_value, Country==SelectCo) %>%
+  mutate(Sector=fct_reorder(Sector, Value, .desc=FALSE)) %>%   #Order the sectors in terms of increasing emissions
+  ggplot(aes(x=Year, y=Value, fill=Sector)) + 
+      geom_area() +
+      scale_fill_viridis(discrete=TRUE, option="plasma") +
+      theme_bw()+
+      ylab("Greenhouse gas emissions (Mt CO2eq)") +
+      ggtitle(SelectCo)
+##### Test #####
+#ggsave("SSD_GHGemissions-time.png", plot=last_plot(), width=8, height=5, units="in", dpi=800)
+
+
+##################### For selected country: create table of transport emissions, value and percentage of total, over time
+r1 <- dcast(filter(data_value, Country==SelectCo && Year==SelectYr), Country ~ Sector2, value.var="Value")
+r2 <- dcast(filter(data_pcnt, Country==SelectCo, Sector=="Transport"), Country ~ Year, value.var="percentage")
+t.co <- rbind(r1, r2)
+t.co$Units <- c("Value (Mt CO2eq)", "Percentage (%)")
+t.co
+
+r3 <- dcast(filter(data_value, Country==SelectCo, Year=="2018"), Country ~ Sector, value.var="Value")
+r3
+
+CCDR_32pilots_names <- c("Angola", "Argentina", "Bangladesh", "Brazil", "Burkina Faso", "Cameroon", "Chad", "China", "Egypt", "Ghana", "Honduras", "India", "Indonesia", "Jordan", "Kazakhstan", "Malawi", "Mali", "Mauritania", "Morocco", "Mozambique", "Nepal", "Niger", "Pakistan", "Peru", "Philippines", "Russia", "Rwanda", "South Africa", "South Sudan", "Turkey", "Ukraine", "Vietnam")
+
+WesternBalkans <- c("Albania", "Bosnia and Herzegovina", "Kosovo", "Montenegro", "Macedonia", "Serbia")
+WesternBalkans_codes <- c("ALB", "BIH", "XKX", "MNE", "MKD", "SRB")
+#no data available for Kosovo; note that North Macedonia = Macedonia in CAIT database
+
+filter(data_combined, Country%in%WesternBalkans, Sector=="TOTAL") %>%
+  mutate(Country=fct_reorder(Country,Value)) %>%   #Order the countries in terms of increasing emissions
+  ggplot(aes(x=Year, y=Value, group=Country, color=Country)) + 
+      geom_line() +
+      scale_color_viridis(discrete=TRUE, option="viridis")+
+      theme_bw() +
+      ylab("Total greenhouse gas emissions (Mt CO2eq)")
+
+
+###########Create table of transport emissions, value and percentage of total, for selected countries over time################
+dcast(filter(data_combined, Country%in%WesternBalkans, Sector=="Transport"), Country ~ Year, value.var="Value")
+dcast(filter(data_pcnt, Country%in%WesternBalkans, Sector=="Transport"), Country ~ Year, value.var="percentage")
+
+filter(data_value, Country%in%WesternBalkans, Sector=="Transport") %>%
+  mutate(Country=fct_reorder(Country,Value)) %>%   #Order the countries in terms of increasing emissions
+  ggplot(aes(x=Year, y=Value, group=Country, color=Country)) + 
+      geom_line() +
+      scale_color_viridis(discrete=TRUE, option="plasma")+
+      theme_bw() +
+      ylab("Greenhouse gas emissions from transport (Mt CO2-eq)")
+#ggsave("WB6_GHGfromTransport_time.png", plot=last_plot(), width=8, height=5, units="in", dpi=800)
+
+filter(data_pcnt, Country%in%WesternBalkans, Sector=="Transport") %>%
+  mutate(Country=fct_reorder(Country,percentage)) %>%   #Order the countries in terms of increasing percentage
+  ggplot(aes(x=Year, y=percentage, group=Country, color=Country)) + 
+      geom_line() +
+      scale_color_viridis(discrete=TRUE, option="plasma")+
+      theme_bw() +
+      ylab("Transport emissions as percentage of \n total greenhouse gas emissions (%)")
+
+
+############ Transport vs. other sectors ###################################
+data_pcnt_WB6 <- filter(data_pcnt, Country%in%WesternBalkans) 
+data_pcnt_WB6_avg <- data_pcnt_WB6 %>%
+                        group_by(Year, Sector) %>%
+                        summarise(WB6.avg = mean(percentage, na.rm=TRUE))
+
+
+################# Ordered the sectors in terms of increasing emissions manually (with negative at the end)########
+data_pcnt_WB6 <- data_pcnt_WB6 %>% mutate(Sector=factor(Sector, levels=c("FugitiveEmissions", "Buildings", "OtherFuelCombustion","Industrial","ManufacturingConstruction","Waste","Agriculture","Transport", "ElectricityHeat", "LandUseForestry")))
+
+data_pcnt_WB6_pos <- merge(filter(data_pcnt_WB6, Sector=="ElectricityHeat"),filter(data_pcnt_WB6, Sector=="Transport"), by=c("Country", "Year"))
+data_pcnt_WB6_pos <- data_pcnt_WB6_pos %>% mutate(trans.pos=percentage.x + percentage.y/2)
+
+data_pcnt_WB6 <- merge(data_pcnt_WB6, subset(data_pcnt_WB6_pos, select=c("Country", "Year", "trans.pos")), by=c("Country", "Year"))
+
+ggplot(data=data_pcnt_WB6, aes(x=Year, y=percentage, fill=Sector)) + 
+      geom_area() + #position = position_stack(reverse = T)
+      scale_fill_viridis(discrete=TRUE, option="plasma") +
+      scale_x_continuous(breaks=c(2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018))+
+      geom_text(data=filter(data_pcnt_WB6, Sector=="Transport"), aes(x=Year, y=trans.pos, label=round(percentage,0)), color="black", size=2)+
+      theme_bw()+
+      theme(axis.title.x=element_blank(), axis.text.x=element_text(angle=35))+
+      ylab("Percentage of total greenhouse gas emissions (%)") + 
+      facet_wrap(~ Country) 
+#ggsave("WB6_PcntGHGbySector_time.png", plot=last_plot(), width=9, height=6, units="in", dpi=800)
+
+
+#################  Time trend ##################################
+filter(data_value, Country%in%WesternBalkans) %>%
+  mutate(Sector=fct_reorder(Sector,Value)) %>%   
+  ggplot(aes(x=Year, y=Value, fill=Sector)) + 
+      geom_area() +
+      scale_fill_viridis(discrete=TRUE, option="plasma") +
+      theme_bw()+
+      ylab("Total greenhouse gas emissions (Mt CO2-eq)") +
+      facet_wrap(~ Country, scales="free") 
+
+###################### Year 2018 #######################################
+filter(data_pcnt, Country%in%WesternBalkans, Year==2018) %>%
+  mutate(Sector=fct_reorder(Sector, percentage, .desc=TRUE)) %>%  #Order the sectors in terms of increasing proportion of emissions
+  ggplot(aes(x=Country, y=percentage, fill=Sector)) + 
+      geom_col() +
+      scale_fill_viridis(discrete=TRUE, option="plasma") +
+      geom_text(aes(label=round(percentage,0)),position=position_stack(vjust=0.5), color="white") +
+      theme_bw()+
+      ylab("Transport emissions as percentage of \n total greenhouse gas emissions (%)") + xlab("")
