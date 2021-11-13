@@ -39,10 +39,6 @@ ui <- dashboardPage(
 
 server <- function(input, output) {
     data_combined <- read.csv(file ="C:/Users/wb580236/OneDrive - WBG/Documents/R/myApp/CAIT_MASTERFILE_2000-2018.csv")
-    data_incgrp <- filter(data_combined, is.na(WB_IncGrp)==FALSE) %>% group_by(Year, Sector2, WB_IncGrp) %>%
-    summarise(n=sum(Value, na.rm=TRUE)) %>%
-    mutate(percentage = (n/sum(n))*100)
-    
     data_world <- filter(data_combined, Country=="WORLD")
     stack_data <- filter(data_incgrp, Sector2=="TransportLogistics")
     SelectCo <- "Philippines"
@@ -51,12 +47,7 @@ server <- function(input, output) {
     data_pcnt <- filter(data_combined, Country==SelectCo, Year==SelectYr) %>% group_by(Sector2) %>%
     summarise(n = sum(Value, na.rm=TRUE)) %>% 
     mutate(percentage = (n / sum(n))*100)
-   
 
-    #r1 <- dcast(filter(data_value, Country==SelectCo && Year==SelectYr), Country ~ Sector2, value.var="Value")
-    #r2 <- dcast(filter(data_pcnt, Country==SelectCo, Sector=="Transport"), Country ~ Year, value.var="percentage")
-    #t.co <- rbind(r1, r2)
-    #t.co$Units <- c("Value (Mt CO2eq)", "Percentage (%)")
 
     output$plot1 <- renderPlot({
     ggplot(stack_data, aes(x=Year, y=n,  fill=WB_IncGrp)) + 
